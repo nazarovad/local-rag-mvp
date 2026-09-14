@@ -1,0 +1,77 @@
+services:
+  postgres:
+    image: postgres:17
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-rag}
+      POSTGRES_USER: ${POSTGRES_USER:-rag}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-rag}
+    volumes:
+      - ./data/postgres:/var/lib/postgresql/data
+    networks: [rag]
+
+  qdrant:
+    image: qdrant/qdrant:latest
+    volumes:
+      - ./data/qdrant:/qdrant/storage
+    networks: [rag]
+
+  minio:
+    image: minio/minio:latest
+    command: server /data --console-address ':9001'
+    environment:
+      MINIO_ROOT_USER: ${S3_ACCESS_KEY:-minioadmin}
+      MINIO_ROOT_PASSWORD: ${S3_SECRET_KEY:-minioadmin}
+    volumes:
+      - ./data/minio:/data
+    ports:
+      - '9001:9001'
+    networks: [rag]
+
+  vllm:
+    image: vllm/vllm-openai:latest
+    command: >-
+      --model ${VLLM_MODEL:-/models/Qwen3-14B-AWQ}
+      --served-model-name ${VLLM_SERVED_MODEL_NAME:-qwen3-local}
+      --host 0.0.0.0
+      --port 8000
+      --gpu-memory-utilization 0.78
+      --max-model-len 16384
+    volumes:
+      - ./models:/models:ro
+    ipc: host
+    gpus: all
+    networks: [rag]
+
+  rag-api:
+    build: ./rag-api
+    env_file: .env
+    depends_on: [qdrant, postgres]
+    networks: [rag]
+    ports:
+      - '8081:8080'
+
+  rag-worker:
+    build: ./rag-worker
+    env_file: .env
+    volumes:
+      - ./models:/models:ro
+      - ./data/worker-cache:/cache
+    depends_on: [minio, qdrant, postgres]
+    networks: [rag]
+
+  open-webui:
+    image: ghcr.io/open-webui/open-webui:main
+    environment:
+      OPENAI_API_BASE_URL: http://vllm:8000/v1
+      OPENAI_API_KEY: local
+      WEBUI_SECRET_KEY: ${OPEN_WEBUI_SECRET_KEY:-change-me}
+    volumes:
+      - ./data/open-webui:/app/backend/data
+    depends_on: [vllm]
+    ports:
+      - '3000:8080'
+    networks: [rag]
+
+networks:
+  rag:
+    driver: bridge

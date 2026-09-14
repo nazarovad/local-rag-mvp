@@ -1,0 +1,4 @@
+/.env
+/.venv/
+/models/bge-m3/
+/models/Qwen3-8B-AWQ/

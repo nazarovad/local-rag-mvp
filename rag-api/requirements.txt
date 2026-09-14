@@ -1,0 +1,4 @@
+fastapi>=0.116
+uvicorn[standard]>=0.35
+qdrant-client>=1.15
+sentence-transformers>=5.1

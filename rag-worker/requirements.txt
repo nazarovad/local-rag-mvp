@@ -1,0 +1,6 @@
+boto3>=1.40
+qdrant-client>=1.15
+sentence-transformers>=5.1
+docling>=2.50
+psycopg[binary]>=3.2
+sqlalchemy>=2.0
