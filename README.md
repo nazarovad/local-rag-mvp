@@ -67,3 +67,49 @@ A table match will return `"kind":"table"` and the table itself in Markdown.
 - Add hybrid BM25+dense search and a reranker.
 - Pin exact Docker/package versions before closed-contour deployment.
 - Put Qdrant, vLLM and internal APIs on non-exposed networks; expose only NGINX/Open WebUI.
+
+---
+# Настройка проекта
+1. Для работы нужно запустить модель нейросети 
+```shell
+docker run --rm `
+  --gpus all `
+  --ipc=host `
+  -e VLLM_WSL2_ENABLE_PIN_MEMORY=1 `
+  -p 8000:8000 `
+  -v "${PWD}\models\Qwen3-8B-AWQ:/models/Qwen3-8B-AWQ:ro" `
+  vllm/vllm-openai:latest `
+  /models/Qwen3-8B-AWQ `
+  --served-model-name qwen3-8b `
+  --quantization awq `
+  --max-model-len 4096 `
+  --gpu-memory-utilization 0.85
+```
+
+2. Запустить квадрант
+```shell
+docker start 9407559a8a43ec7462915cd304271f6fbe6f3356eaf90f8a3c7f18ed9b46a889
+```
+3. Запустить webUI
+```shell
+docker start fe44a0c248b61edbbac301e3a20db77197c05fe39c065ae94c1cc74ee3cf5fa0
+```
+4. Запустить rag-api
+
+```shell
+uvicorn rag-api.app.main:app `
+  --host 0.0.0.0 `
+  --port 8001 `
+  --reload
+```
+---
+1. ocr_extract.py - распознает текст
+2. ingest_ocr.py - эмбеддинг
+
+Чтобы запустить эмбединг файла
+
+```python
+python .\scripts\ingest_ocr.py "data/ocr/pages/Акт №91 от 28.04.2022_0.md"
+```
+
+
