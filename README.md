@@ -70,7 +70,30 @@ A table match will return `"kind":"table"` and the table itself in Markdown.
 
 ---
 # Настройка проекта
-1. Для работы нужно запустить модель нейросети 
+
+Зависимости
+```shell
+python -m venv .venv
+.\.venv\Scripts\Activate.ps1
+python -m pip install -r scripts/requirements.txt
+python -m pip install -r rag-api/requirements.txt
+```
+
+Модели
+```shell
+python -m pip install -U huggingface_hub
+hf download Qwen/Qwen3-8B-AWQ --local-dir models/Qwen3-8B-AWQ
+hf download BAAI/bge-m3 --local-dir models/bge-m3
+```
+
+Проверка работает ли GPU (только NVIDIA)
+```shell
+docker run --rm --gpus all nvidia/cuda:12.6.0-base-ubuntu22.04 nvidia-smi
+```
+
+
+---
+1. Для работы нужно запустить модель Qwen3-8B
 ```shell
 docker run --rm `
   --gpus all `
@@ -85,17 +108,34 @@ docker run --rm `
   --max-model-len 4096 `
   --gpu-memory-utilization 0.85
 ```
+`-e VLLM_WSL2_ENABLE_PIN_MEMORY=1` использовать при WSL2-ошибки с UVA
 
 2. Запустить квадрант
 ```shell
-docker start 9407559a8a43ec7462915cd304271f6fbe6f3356eaf90f8a3c7f18ed9b46a889
+docker run -d `
+  --name qdrant `
+  -p 6333:6333 `
+  -p 6334:6334 `
+  -v qdrant-storage:/qdrant/storage `
+  qdrant/qdrant:latest
 ```
+
+Коллекции находятся в `http://localhost:6333/collections/documents`
+
 3. Запустить webUI
 ```shell
-docker start fe44a0c248b61edbbac301e3a20db77197c05fe39c065ae94c1cc74ee3cf5fa0
+docker run -d `
+  -p 3000:8080 `
+  --add-host=host.docker.internal:host-gateway `
+  -v open-webui:/app/backend/data `
+  --name open-webui `
+  --restart unless-stopped `
+  ghcr.io/open-webui/open-webui:main
 ```
-4. Запустить rag-api
 
+Open webUI `http://localhost:3000`
+
+4. Запустить rag-api
 ```shell
 uvicorn rag-api.app.main:app `
   --host 0.0.0.0 `
@@ -103,13 +143,13 @@ uvicorn rag-api.app.main:app `
   --reload
 ```
 ---
+## Скрипты
 1. ocr_extract.py - распознает текст
 2. ingest_ocr.py - эмбеддинг
 
-Чтобы запустить эмбединг файла
-
-```python
-python .\scripts\ingest_ocr.py "data/ocr/pages/Акт №91 от 28.04.2022_0.md"
+```shell
+python .\scripts\ocr_extract.py "data/акт №12.pdf"
+python .\scripts\ingest_ocr.py "data/documents/акт №12"   
 ```
 
 

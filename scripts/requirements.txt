@@ -1,0 +1,3 @@
+paddleocr==3.3.3
+qdrant_client==1.19.1
+sentence_transformers==6.0.1

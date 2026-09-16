@@ -7,3 +7,5 @@
 /data/акт №87 от 31.03.20.pdf
 data/documents/*
 !data/documents/.gitkeep
+/data/ocr/
+/scripts/temp/
