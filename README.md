@@ -122,6 +122,8 @@ docker run -d `
 
 Коллекции находятся в `http://localhost:6333/collections/documents`
 
+Проверить документы после эмбеддинга `http://localhost:8001/debug/documents`
+
 3. Запустить webUI
 ```shell
 docker run -d `
@@ -151,5 +153,15 @@ uvicorn rag-api.app.main:app `
 python .\scripts\ocr_extract.py "data/акт №12.pdf"
 python .\scripts\ingest_ocr.py "data/documents/акт №12"   
 ```
+---
+## Настройка в webUI
+Панель администратора -> Настройки -> Подключения
+
+
+<img width="1982" height="441" alt="image" src="https://github.com/user-attachments/assets/33c8aeb9-00f4-4640-9a8a-2bd687b37bb7" />
+<img width="626" height="735" alt="image" src="https://github.com/user-attachments/assets/ff765249-9c5f-4dfa-a809-9bf978bf13a8" />
+
+
+
 
 
