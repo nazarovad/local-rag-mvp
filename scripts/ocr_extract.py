@@ -1,105 +1,249 @@
+# -*- coding: utf-8 -*-
+
 from pathlib import Path
-import json
+import argparse
+import shutil
 
 from paddleocr import PPStructureV3
 
 
-PDF_PATH = Path("data/Акт №91 от 28.04.2022.pdf")
-OUTPUT_DIR = Path("data/ocr")
-OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
+DOCUMENTS_DIR = Path("data/documents")
 
 
 def main():
-    print(f"Распознаём документ: {PDF_PATH}")
+    parser = argparse.ArgumentParser(
+        description="Распознавание PDF через PaddleOCR"
+    )
+
+    parser.add_argument(
+        "pdf",
+        help="Путь к PDF-файлу",
+    )
+
+    args = parser.parse_args()
+
+    # ------------------------------------------------------
+    # PDF
+    # ------------------------------------------------------
+
+    pdf_path = Path(args.pdf)
+
+    if not pdf_path.exists():
+        raise FileNotFoundError(
+            f"PDF не найден: {pdf_path}"
+        )
+
+    if pdf_path.suffix.lower() != ".pdf":
+        raise ValueError(
+            f"Ожидался PDF-файл: {pdf_path}"
+        )
+
+    # Имя документа = имя PDF без расширения
+    document_name = pdf_path.stem
+
+    # data/documents/ИМЯ_ФАЙЛА
+    output_dir = (
+        DOCUMENTS_DIR /
+        document_name
+    )
+
+    # ------------------------------------------------------
+    # Если документ уже существует —
+    # удаляем старую папку целиком
+    # ------------------------------------------------------
+
+    if output_dir.exists():
+        print(
+            f"Папка уже существует. "
+            f"Удаляем: {output_dir}"
+        )
+
+        shutil.rmtree(output_dir)
+
+    # ------------------------------------------------------
+    # Каталоги документа
+    # ------------------------------------------------------
+
+    # data/documents/ИМЯ/pages
+    page_md_dir = (
+        output_dir /
+        "pages"
+    )
+
+    # data/documents/ИМЯ/pages/imgs
+    imgs_dir = (
+        page_md_dir /
+        "imgs"
+    )
+
+    # data/documents/ИМЯ/json
+    page_json_dir = (
+        output_dir /
+        "json"
+    )
+
+    page_md_dir.mkdir(
+        parents=True,
+        exist_ok=True,
+    )
+
+    imgs_dir.mkdir(
+        parents=True,
+        exist_ok=True,
+    )
+
+    page_json_dir.mkdir(
+        parents=True,
+        exist_ok=True,
+    )
+
+    print("=" * 80)
+    print(f"Распознаём документ: {pdf_path}")
+    print(f"Папка документа:     {output_dir}")
+    print("=" * 80)
+
+    # ------------------------------------------------------
+    # PaddleOCR
+    # ------------------------------------------------------
 
     pipeline = PPStructureV3(
         lang="ru",
 
-        # Полезно для сканов:
         use_doc_orientation_classify=True,
 
-        # Если страницы могут быть немного искривлены/сфотографированы:
         use_doc_unwarping=True,
 
-        # Определяем ориентацию строк текста:
         use_textline_orientation=True,
 
-        # Пока CPU — GPU занят Qwen
+        # GPU пока занят Qwen
         device="cpu",
     )
 
     results = pipeline.predict(
-        input=str(PDF_PATH)
+        input=str(pdf_path)
     )
 
-    markdown_pages = []
-    all_json = []
+    page_count = 0
+    image_count = 0
 
-    for page_no, result in enumerate(results, start=1):
-        print(f"Обработана страница {page_no}")
+    # ------------------------------------------------------
+    # Обрабатываем страницы
+    # ------------------------------------------------------
 
-        #
-        # 1. Сохраняем исходный структурированный JSON
-        #
-        page_json_dir = OUTPUT_DIR / "json"
-        page_json_dir.mkdir(exist_ok=True)
+    for page_no, result in enumerate(
+        results,
+        start=1,
+    ):
+        page_count = page_no
+
+        print(
+            f"Обработана страница {page_no}"
+        )
+
+        # --------------------------------------------------
+        # JSON
+        # --------------------------------------------------
 
         result.save_to_json(
-            save_path=str(page_json_dir)
+            save_path=str(
+                page_json_dir
+            )
         )
 
-        #
-        # 2. Сохраняем Markdown страницы
-        #
-        page_md_dir = OUTPUT_DIR / "pages"
-        page_md_dir.mkdir(exist_ok=True)
+        # --------------------------------------------------
+        # Markdown
+        # PaddleOCR сохраняет Markdown в pages
+        # --------------------------------------------------
 
         result.save_to_markdown(
-            save_path=str(page_md_dir)
+            save_path=str(
+                page_md_dir
+            )
         )
 
-        #
-        # 3. Забираем Markdown в память
-        #
+        # --------------------------------------------------
+        # Images
+        # --------------------------------------------------
+
         md_info = result.markdown
 
-        markdown_pages.append(md_info)
+        if isinstance(md_info, dict):
+            markdown_images = md_info.get(
+                "markdown_images",
+                {}
+            )
 
-        #
-        # Для собственного отладочного JSON
-        #
-        try:
-            all_json.append(result.json)
-        except Exception:
-            pass
+            for image_path, image in (
+                markdown_images.items()
+            ):
+                relative_path = Path(
+                    image_path
+                )
 
-    #
-    # Объединяем Markdown всех страниц PDF
-    #
-    merged_markdown = pipeline.concatenate_markdown_pages(
-        markdown_pages
-    )
+                # Обычно PaddleOCR возвращает:
+                #
+                # imgs/xxx.png
+                #
+                # Поэтому:
+                #
+                # pages / imgs/xxx.png
+                #
+                # ->
+                #
+                # pages/imgs/xxx.png
 
-    markdown_path = OUTPUT_DIR / "document.md"
+                save_path = (
+                    page_md_dir /
+                    relative_path
+                )
 
-    markdown_path.write_text(
-        merged_markdown,
-        encoding="utf-8"
-    )
+                save_path.parent.mkdir(
+                    parents=True,
+                    exist_ok=True,
+                )
+
+                image.save(
+                    save_path
+                )
+
+                image_count += 1
+
+    # ------------------------------------------------------
+    # Result
+    # ------------------------------------------------------
 
     print()
     print("=" * 80)
     print("OCR завершён")
     print("=" * 80)
 
-    print(f"Markdown: {markdown_path}")
-    print(f"Страницы: {OUTPUT_DIR / 'pages'}")
-    print(f"JSON: {OUTPUT_DIR / 'json'}")
+    print(
+        f"Документ:    {document_name}"
+    )
 
-    print()
-    print("Первые 5000 символов:")
-    print("=" * 80)
-    print(merged_markdown[:5000])
+    print(
+        f"Страниц:     {page_count}"
+    )
+
+    print(
+        f"Изображений: {image_count}"
+    )
+
+    print(
+        f"Папка:       {output_dir}"
+    )
+
+    print(
+        f"Markdown:    {page_md_dir}"
+    )
+
+    print(
+        f"Images:      {imgs_dir}"
+    )
+
+    print(
+        f"JSON:        {page_json_dir}"
+    )
 
 
 if __name__ == "__main__":

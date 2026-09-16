@@ -2,3 +2,8 @@
 /.venv/
 /models/bge-m3/
 /models/Qwen3-8B-AWQ/
+/data/акт №471 от 30.09.19.pdf
+/data/Акт №91 от 28.04.2022.pdf
+/data/акт №87 от 31.03.20.pdf
+data/documents/*
+!data/documents/.gitkeep
