@@ -68,7 +68,7 @@ Open webUI `http://localhost:3000`
 
 4. Запустить rag-api
 ```shell
-uvicorn rag-api.app.main:app `
+uvicorn rag-api.app.rag_api:app `
   --host 0.0.0.0 `
   --port 8001 `
   --reload
